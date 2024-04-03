@@ -15,8 +15,11 @@ categories = ["api-bindings", "asynchronous", "concurrency"]
 publish.workspace = true
 
 [features]
-default = []
+default = ["dynamic"]
+dynamic = []
+static = []
 
 [dependencies]
+dart-sys = "4.1"
 
 [target.'cfg(unix)'.dependencies]
