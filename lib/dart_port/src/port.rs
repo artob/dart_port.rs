@@ -1,6 +1,6 @@
 // This is free and unencumbered software released into the public domain.
 
-use super::{prelude::Result, SendPort};
+use super::{prelude::Result, Error, SendPort};
 use dart_sys::{
     Dart_CObject, Dart_CloseNativePort_DL, Dart_Port_DL, Dart_PostCObject_DL, Dart_PostInteger_DL,
 };
@@ -60,21 +60,27 @@ impl DartPort {
         self.id.store(id, ATOMIC_ORDERING);
     }
 
-    pub fn close(&self) -> bool {
+    pub fn close(&self) -> Result<()> {
         let id = self.id.swap(ILLEGAL_PORT_ID, ATOMIC_ORDERING);
-        if id != ILLEGAL_PORT_ID {
-            unsafe {
-                let close = Dart_CloseNativePort_DL.expect("Dart API initialized");
-                return close(id);
+        if id == ILLEGAL_PORT_ID {
+            return Err(Error::IllegalPort);
+        }
+        unsafe {
+            let close = Dart_CloseNativePort_DL.expect("Dart API initialized");
+            if !close(id) {
+                // See: PortMap::ClosePort in sdk/runtime/vm/port.cc
+                // See: https://github.com/dart-lang/sdk/blob/3.3.3/runtime/vm/port.cc#L90
+                // See: https://github.com/dart-lang/sdk/blob/3.3.3/runtime/vm/native_api_impl.cc#L104
+                return Err(Error::InvalidPort);
             }
         }
-        false
+        Ok(())
     }
 }
 
 impl SendPort for DartPort {
     #[track_caller]
-    fn post_null(&self) -> Result {
+    fn post_null(&self) -> Result<()> {
         self.post_cobject(&mut Dart_CObject {
             type_: dart_sys::Dart_CObject_Type_Dart_CObject_kNull,
             value: dart_sys::_Dart_CObject__bindgen_ty_1 { as_bool: false },
@@ -82,7 +88,7 @@ impl SendPort for DartPort {
     }
 
     #[track_caller]
-    fn post_bool(&self, value: bool) -> Result {
+    fn post_bool(&self, value: bool) -> Result<()> {
         self.post_cobject(&mut Dart_CObject {
             type_: dart_sys::Dart_CObject_Type_Dart_CObject_kBool,
             value: dart_sys::_Dart_CObject__bindgen_ty_1 { as_bool: value },
@@ -90,21 +96,25 @@ impl SendPort for DartPort {
     }
 
     #[track_caller]
-    fn post_integer(&self, value: i64) -> Result {
+    fn post_integer(&self, value: i64) -> Result<()> {
         let port_id = self.id.load(ATOMIC_ORDERING);
-        if port_id != ILLEGAL_PORT_ID {
-            unsafe {
-                let post = Dart_PostInteger_DL.expect("Dart API initialized");
-                if post(port_id, value) {
-                    return Ok(());
-                }
+        if port_id == ILLEGAL_PORT_ID {
+            return Err(Error::IllegalPort);
+        }
+        unsafe {
+            let post = Dart_PostInteger_DL.expect("Dart API initialized");
+            if !post(port_id, value) {
+                // See: PortMap::PostMessage in sdk/runtime/vm/port.cc
+                // See: https://github.com/dart-lang/sdk/blob/3.3.3/runtime/vm/port.cc#L152
+                // See: https://github.com/dart-lang/sdk/blob/3.3.3/runtime/vm/native_api_impl.cc#L63
+                return Err(Error::InvalidPort);
             }
         }
-        Err(())
+        Ok(())
     }
 
     #[track_caller]
-    fn post_integers(&self, values: &[i64]) -> Result {
+    fn post_integers(&self, values: &[i64]) -> Result<()> {
         self.post_cobject(&mut Dart_CObject {
             type_: dart_sys::Dart_CObject_Type_Dart_CObject_kTypedData,
             value: dart_sys::_Dart_CObject__bindgen_ty_1 {
@@ -118,14 +128,14 @@ impl SendPort for DartPort {
     }
 
     #[track_caller]
-    fn post_string(&self, value: impl AsRef<str>) -> Result {
+    fn post_string(&self, value: impl AsRef<str>) -> Result<()> {
         self.post_cstring(
             &CString::new(value.as_ref()).expect("string must not contain embedded NULs"),
         )
     }
 
     #[track_caller]
-    fn post_cstring(&self, value: &CString) -> Result {
+    fn post_cstring(&self, value: &CString) -> Result<()> {
         self.post_cobject(&mut Dart_CObject {
             type_: dart_sys::Dart_CObject_Type_Dart_CObject_kString,
             value: dart_sys::_Dart_CObject__bindgen_ty_1 {
@@ -135,16 +145,20 @@ impl SendPort for DartPort {
     }
 
     #[track_caller]
-    fn post_cobject(&self, value: &mut Dart_CObject) -> Result {
+    fn post_cobject(&self, value: &mut Dart_CObject) -> Result<()> {
         let port_id = self.id.load(ATOMIC_ORDERING);
-        if port_id != ILLEGAL_PORT_ID {
-            unsafe {
-                let post = Dart_PostCObject_DL.expect("Dart API initialized");
-                if post(port_id, value) {
-                    return Ok(());
-                }
+        if port_id == ILLEGAL_PORT_ID {
+            return Err(Error::IllegalPort);
+        }
+        unsafe {
+            let post = Dart_PostCObject_DL.expect("Dart API initialized");
+            if !post(port_id, value) {
+                // See: PortMap::PostMessage in sdk/runtime/vm/port.cc
+                // See: https://github.com/dart-lang/sdk/blob/3.3.3/runtime/vm/port.cc#L152
+                // See: https://github.com/dart-lang/sdk/blob/3.3.3/runtime/vm/native_api_impl.cc#L59
+                return Err(Error::InvalidPort);
             }
         }
-        Err(())
+        Ok(())
     }
 }
