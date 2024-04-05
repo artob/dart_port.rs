@@ -1,6 +1,6 @@
 // This is free and unencumbered software released into the public domain.
 
-use super::prelude::Result;
+use super::{prelude::Result, DartPort};
 use dart_sys::Dart_CObject;
 use std::ffi::{CStr, CString};
 
@@ -12,6 +12,7 @@ pub trait SendPort {
     fn post_integer(&self, value: i64) -> Result<()>;
     fn post_integers(&self, values: &[i64]) -> Result<()>;
     fn post_string(&self, value: impl AsRef<str>) -> Result<()>;
+    fn post_port(&self, value: &DartPort) -> Result<()>;
     fn post_cstr(&self, value: &CStr) -> Result<()>;
     fn post_cstring(&self, value: &CString) -> Result<()>;
     fn post_cobject(&self, value: Dart_CObject) -> Result<()>;

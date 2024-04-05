@@ -22,7 +22,7 @@ check:
 	$(CARGO) test -- --nocapture --color=always
 
 clean:
-	rm -rfv libdart_port.a libdart_port.dylib
+	rm -rf libdart_port.a libdart_port.dylib
 	$(CARGO) clean
 
 .PHONY: all check clean

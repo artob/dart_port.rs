@@ -1,27 +1,13 @@
 // This is free and unencumbered software released into the public domain.
 
-use super::{prelude::Result, Error, SendPort};
-use dart_sys::{
-    Dart_CObject, Dart_CloseNativePort_DL, Dart_Port_DL, Dart_PostCObject_DL, Dart_PostInteger_DL,
+use super::{
+    prelude::{AtomicDartPortID, DartPortID, Result, ATOMIC_ORDERING, ILLEGAL_PORT_ID},
+    Error, ReceivePort, SendPort,
 };
+use dart_sys::{Dart_CObject, Dart_CloseNativePort_DL, Dart_PostCObject_DL, Dart_PostInteger_DL};
 use std::{
     ffi::{CStr, CString},
-    mem::size_of,
-    sync::atomic::{AtomicI64, Ordering},
 };
-
-pub type DartPortID = Dart_Port_DL;
-pub type AtomicDartPortID = AtomicI64;
-
-/// A port number guaranteed never to be associated with a valid port.
-const ILLEGAL_PORT_ID: DartPortID = 0;
-
-const ATOMIC_ORDERING: std::sync::atomic::Ordering = Ordering::SeqCst;
-
-const _: () = assert!(
-    size_of::<DartPortID>() == size_of::<AtomicDartPortID>(),
-    "AtomicDartPortID size mismatch"
-);
 
 /// A port is used to send or receive inter-isolate messages.
 #[derive(Debug, Default)]
@@ -77,6 +63,8 @@ impl DartPort {
         Ok(())
     }
 }
+
+impl ReceivePort for DartPort {}
 
 impl SendPort for DartPort {
     #[track_caller]
@@ -162,6 +150,19 @@ impl SendPort for DartPort {
         })
     }
 
+    #[track_caller]
+    fn post_port(&self, port: &Self) -> Result<()> {
+        self.post_cobject(Dart_CObject {
+            type_: dart_sys::Dart_CObject_Type_Dart_CObject_kSendPort,
+            value: dart_sys::_Dart_CObject__bindgen_ty_1 {
+                as_send_port: dart_sys::_Dart_CObject__bindgen_ty_1__bindgen_ty_1 {
+                    id: port.id.load(ATOMIC_ORDERING),
+                    origin_id: ILLEGAL_PORT_ID,
+                },
+            },
+        })
+    }
+
     fn post_cobject(&self, mut value: Dart_CObject) -> Result<()> {
         let port_id = self.id.load(ATOMIC_ORDERING);
         if port_id == ILLEGAL_PORT_ID {
@@ -178,10 +179,4 @@ impl SendPort for DartPort {
         }
         Ok(())
     }
-}
-
-#[allow(unused)]
-#[no_mangle]
-pub unsafe extern "C" fn DartPort_InitializeApiDL(data: *mut ::core::ffi::c_void) -> isize {
-    return dart_sys::Dart_InitializeApiDL(data);
 }
