@@ -17,3 +17,7 @@
 /Cargo.lock
 /rust-toolchain
 /target
+
+# Build outputs
+/libdart_port.a
+/libdart_port.dylib

@@ -179,3 +179,9 @@ impl SendPort for DartPort {
         Ok(())
     }
 }
+
+#[allow(unused)]
+#[no_mangle]
+pub unsafe extern "C" fn DartPort_InitializeApiDL(data: *mut ::core::ffi::c_void) -> isize {
+    return dart_sys::Dart_InitializeApiDL(data);
+}

@@ -23,4 +23,8 @@ static = []
 dart-sys = "4.1"
 thiserror = "1.0"
 
+[lib]
+name = "dart_port"
+crate-type = ["cdylib", "staticlib"]
+
 [target.'cfg(unix)'.dependencies]
