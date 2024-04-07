@@ -2,7 +2,7 @@
 
 use super::{
     prelude::{DartPortID, DartPortMessageHandler, Result, ILLEGAL_PORT_ID},
-    Error,
+    Error, NativePort,
 };
 use dart_sys::Dart_CObject;
 use std::ptr::null;
@@ -38,7 +38,7 @@ impl RawReceivePort {
     ///
     /// After a call to this method, any incoming message is silently
     /// dropped. The handler will never be called again.
-    pub fn close(&self) -> Result<()> {
+    pub fn close(&mut self) -> Result<()> {
         if self.id == ILLEGAL_PORT_ID {
             return Err(Error::IllegalPort);
         }
@@ -47,8 +47,15 @@ impl RawReceivePort {
             if !close(self.id) {
                 return Err(Error::InvalidPort);
             }
+            self.id = ILLEGAL_PORT_ID;
             Ok(())
         }
+    }
+}
+
+impl NativePort for RawReceivePort {
+    fn id(&self) -> DartPortID {
+        self.id
     }
 }
 
